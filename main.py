@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
-import ccxt
-import os
+from urllib.request import urlopen
+from urllib.parse import urlencode
+import json
 
 app = FastAPI()
 
@@ -9,27 +10,45 @@ app = FastAPI()
 def accueil():
     return """
     <html>
-    <head><meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Mon bot crypto</title></head>
+    <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mon bot crypto</title>
+    </head>
     <body style="font-family:Arial;text-align:center;padding:25px">
     <h1>🤖 Mon bot crypto</h1>
-    <h2>Mode TESTNET uniquement</h2>
-    <p>Bot connecté à Binance en lecture des prix.</p>
-    <p>Aucun ordre réel ne sera passé.</p>
-    <p id="prix">Chargement du prix BTC...</p>
+    <h2>Suivi BTC et ETH</h2>
+    <p id="prix">Chargement des prix...</p>
     <script>
-    fetch('/prix').then(r=>r.json()).then(d=>{
-      document.getElementById('prix').innerText =
-      'Bitcoin : ' + d.prix + ' USDT';
-    }).catch(()=> {
-      document.getElementById('prix').innerText='Prix indisponible';
-    });
+    fetch('/prix')
+      .then(r => r.json())
+      .then(d => {
+        document.getElementById('prix').innerHTML =
+          'Bitcoin : ' + d.BTC + ' €<br><br>' +
+          'Ethereum : ' + d.ETH + ' €';
+      })
+      .catch(() => {
+        document.getElementById('prix').innerText =
+          'Prix indisponibles pour le moment';
+      });
     </script>
-    </body></html>
+    <p>Prix indicatifs fournis par CoinGecko.</p>
+    <p>Aucun achat ni vente automatique.</p>
+    </body>
+    </html>
     """
 
 @app.get("/prix")
 def prix():
-    exchange = ccxt.binance()
-    ticker = exchange.fetch_ticker("BTC/USDT")
-    return {"prix": ticker["last"]}
+    url = "https://api.coingecko.com/api/v3/simple/price?"
+    params = urlencode({
+        "ids": "bitcoin,ethereum",
+        "vs_currencies": "eur"
+    })
+
+    with urlopen(url + params, timeout=15) as response:
+        data = json.loads(response.read().decode())
+
+    return {
+        "BTC": data["bitcoin"]["eur"],
+        "ETH": data["ethereum"]["eur"]
+    }
